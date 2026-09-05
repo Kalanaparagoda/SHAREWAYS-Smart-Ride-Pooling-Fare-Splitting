@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection rules
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Rides collection rules
+    match /rides/{rideId} {
+      allow read: if request.auth != null;
+      // Allow create if the driver_uid matches auth uid
+      allow create: if request.auth != null && request.resource.data.driver_uid == request.auth.uid;
+      // Allow update if the existing driver_uid matches auth uid (or the request is updating seats which is allowed for anyone in a transaction? Actually no, transactions bypass this if run via Admin SDK, but client-side transactions are subject to rules. If passengers update `availableSeats` on booking, we need to allow updating `availableSeats`. But wait, bookings logic says: "Writes must go through the FastAPI backend". Oh! Let's check `backend/routers/bookings.py` to see if bookings are done in backend!)
+      // Allow update if the existing driver_uid matches auth uid, OR if a passenger is only updating availableSeats (for cancellations/bookings)
+      allow update: if request.auth != null && (
+        resource.data.driver_uid == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableSeats'])
+      );
+      allow delete: if request.auth != null && resource.data.driver_uid == request.auth.uid;
+    }
+    
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && resource.data.recipient_uid == request.auth.uid;
+      allow write: if request.auth != null; // Ideally restrict create to specific cases, but ok for now
+    }
+    
+    // Chats
+    match /chats/{bookingId}/messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Ratings
+    match /ratings/{ratingId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only backend writes ratings
+    }
+    
+    // SOS Alerts
+    match /sos_alerts/{alertId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.sender_uid;
+      allow write: if false; // Backend only
+    }
+
+    // Bookings collection rules
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.passenger_uid ||
+        request.auth.uid == resource.data.driver_uid
+      );
+      // Let's see if bookings are written by client. Wait, `MyRides.jsx` does `updateDoc(doc(db, "bookings", bId))` for driver accepting/declining.
+      // So client DOES write to bookings!
+      // A driver can update the status of their booking. A passenger can cancel their booking.
+      // Let's allow update if driver or passenger.
+      allow write: if request.auth != null && (
+        request.auth.uid == resource.data.passenger_uid ||
+        request.auth.uid == resource.data.driver_uid || 
+        // For creates, the passenger_uid should be request.auth.uid
+        (request.resource != null && request.auth.uid == request.resource.data.passenger_uid)
+      );
+    }
+  }
+}

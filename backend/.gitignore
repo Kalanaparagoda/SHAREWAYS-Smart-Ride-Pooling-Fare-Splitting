@@ -1,0 +1,51 @@
+# ========================
+# Backend (Python / FastAPI) .gitignore
+# ========================
+
+# Environment & secrets
+.env
+.env.*
+.env.local
+serviceAccountKey.json
+*serviceAccount*.json
+*.pem
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+__pyenv__/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Python packaging / distribution
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.tox/
+
+# Type checking
+.mypy_cache/
+.pytype/
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
